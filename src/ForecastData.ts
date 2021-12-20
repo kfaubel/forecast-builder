@@ -93,7 +93,8 @@ export class ForecastData {
         try {
             const headers = {
                 "Content-Encoding": "gzip", 
-                "User-Agent": userAgent
+                "User-Agent": userAgent,
+                "Accept": "application/ld+json"
             };
 
             const summary: Summary = {forecast: null, alerts: null};
@@ -104,7 +105,17 @@ export class ForecastData {
             let gridJson: Grid;
 
             try {
-                const response: AxiosResponse = await axios.get(gridURL, {headers: {headers}, timeout: 2000});
+                const response: AxiosResponse = await axios.get(gridURL, 
+                    {
+                        headers: {
+                            "Content-Encoding": "gzip", 
+                            "User-Agent": userAgent
+                        }, 
+                        timeout: 2000
+                    }
+                );
+                
+                //this.logger.verbose(JSON.stringify(response.data, null, 4));
                 gridJson = response.data;
 
                 // this.logger.verbose("Properties: " + JSON.stringify(gridJson.properties, null, 4));
@@ -135,7 +146,15 @@ export class ForecastData {
             let forecastJson: Forecast;
  
             try {
-                const response: AxiosResponse = await axios.get(gridJson.properties.forecast, {headers: {headers}, timeout: 2000});
+                const response: AxiosResponse = await axios.get(gridJson.properties.forecast, 
+                    {
+                        headers: {
+                            "Content-Encoding": "gzip", 
+                            "User-Agent": userAgent
+                        }, 
+                        timeout: 2000
+                    }
+                );
                 forecastJson = response.data;
 
                 // this.logger.verbose("Properties: " + JSON.stringify(forecastJson.properties, null, 4));
@@ -154,6 +173,7 @@ export class ForecastData {
                 }                 
             } catch(e) {
                 this.logger.error(`ForecastData: Error getting forecast data: ${e}`);
+                //this.logger.error(JSON.stringify(e, null, 4));  // We sometimes get a 500, not sure why
                 return null;
             }
 
@@ -166,27 +186,34 @@ export class ForecastData {
             let alertsJson: Alerts;
  
             try {
-                const response: AxiosResponse = await axios.get(alertsURL, {headers: {headers}, timeout: 2000});
+                const response: AxiosResponse = await axios.get(alertsURL, 
+                    {
+                        headers: {
+                            "Content-Encoding": "gzip", 
+                            "User-Agent": userAgent
+                        }, 
+                        timeout: 2000
+                    }
+                );
+                
                 alertsJson = response.data;
 
                 // this.logger.verbose("Alerts: " + JSON.stringify(alertsJson, null, 4));
 
                 if (forecastJson !== undefined) {
-                    if (typeof forecastJson.properties                    === "undefined" ||
-                        typeof forecastJson.properties.periods            === "undefined" ||
-                        typeof forecastJson.properties.periods[0].number  === "undefined") {
-                        this.logger.error("Missing forecast values");
-                        this.logger.verbose(JSON.stringify(forecastJson, null, 4));
+                    if (typeof alertsJson.features === "undefined") {
+                        this.logger.error("Missing alert values");
+                        this.logger.verbose(JSON.stringify(alertsJson, null, 4));
                         return null;
                     }
                 } else {
-                    this.logger.error("Missing data from forecast call");
+                    this.logger.error("Missing data from alert call");
                     return null;
                 } 
 
                 
             } catch(e) {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e}`);
+                this.logger.error(`ForecastData: Error getting alert data: ${e}`);
                 return null;
             }
             summary.alerts = alertsJson;
@@ -194,10 +221,10 @@ export class ForecastData {
             return summary;
         }  catch(e) {
             if (e instanceof Error) {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e.message}`);
+                this.logger.error(`ForecastData: Error getting data: ${e.message}`);
                 this.logger.error(`${e.stack}`);
             } else {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e}`);
+                this.logger.error(`ForecastData: Error getting data: ${e}`);
             }
             return null;
         }

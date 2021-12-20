@@ -54,7 +54,13 @@ export class ForecastImage {
 
         const title = `Forecast for ${location}`;
 
-        const summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
+        let summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
+
+        if (summaryJson === null) {
+            // try again
+            this.logger.warn("getForecastData failed, retrying");
+            summaryJson = await  this.forecastData.getForecastData(lat, lon, userAgent);
+        }
 
         if (summaryJson === null) {
             this.logger.warn("ForecastImage: Failed to get data, no image available.");
