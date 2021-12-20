@@ -1,6 +1,6 @@
 {
   "name": "forecast-builder",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Create forecast images with data from the NWS",
   "main": "index.js",
   "types": "index.d.ts",
