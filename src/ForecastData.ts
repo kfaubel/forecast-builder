@@ -91,131 +91,162 @@ export class ForecastData {
      */
     public async getForecastData(lat: string, lon: string, userAgent: string): Promise<Summary | null> {
         try {
-            const headers = {
-                "Content-Encoding": "gzip", 
-                "User-Agent": userAgent,
-                "Accept": "application/ld+json"
-            };
-
             const summary: Summary = {forecast: null, alerts: null};
             // Step 1 - lookup the grid
             const gridURL = `https://api.weather.gov/points/${lat},${lon}`;
             this.logger.verbose(`Grid lookup: ${gridURL}`);
 
-            let gridJson: Grid;
+            let response: AxiosResponse | null = null;
+            let attempts = 1;
 
-            try {
-                const response: AxiosResponse = await axios.get(gridURL, 
-                    {
-                        headers: {
-                            "Content-Encoding": "gzip", 
-                            "User-Agent": userAgent
-                        }, 
-                        timeout: 2000
-                    }
-                );
-                
-                //this.logger.verbose(JSON.stringify(response.data, null, 4));
-                gridJson = response.data;
-
-                // this.logger.verbose("Properties: " + JSON.stringify(gridJson.properties, null, 4));
-
-                if (gridJson !== undefined) {
-                    if (typeof gridJson.properties        === "undefined" ||
-                        typeof gridJson.properties.gridId === "undefined" ||
-                        typeof gridJson.properties.gridX  === "undefined" ||
-                        typeof gridJson.properties.gridY  === "undefined") {
-                        this.logger.error("Missing grid values");                        
-                        return null;
-                    }
-                } else {
-                    this.logger.error("Missing data from grid call");
-                    return null;
+            while (response === null && attempts <= 2) {
+                try {
+                    response = await axios.get(gridURL, 
+                        {
+                            headers: {
+                                "Content-Encoding": "gzip", 
+                                "User-Agent": userAgent
+                            }, 
+                            timeout: 2000
+                        }
+                    );
+                } catch (e) {
+                    // For more, see: https://github.com/axios/axios#handling-errors
+                    this.logger.error(`ForecastData: grid(${attempts}): ${e}`);
                 } 
-                
-            } catch(e) {
-                this.logger.error(`ForecastData: Error getting grid data: ${e}`);
+
+                if (response !== null && attempts !== 1) {
+                    this.logger.info("Retry of grid GET worked!!!");
+                }
+                attempts++;
+            }
+
+            if (response === null) {
+                this.logger.error("No grid data");
                 return null;
             }
+                
+            //this.logger.verbose(JSON.stringify(response.data, null, 4));
+            const gridJson: Grid = response.data;
+
+            // this.logger.verbose("Properties: " + JSON.stringify(gridJson.properties, null, 4));
+
+            if (gridJson !== undefined) {
+                if (typeof gridJson.properties        === "undefined" ||
+                    typeof gridJson.properties.gridId === "undefined" ||
+                    typeof gridJson.properties.gridX  === "undefined" ||
+                    typeof gridJson.properties.gridY  === "undefined") {
+                    this.logger.error("Missing grid values");                        
+                    return null;
+                }
+            } else {
+                this.logger.error("Missing data from grid call");
+                return null;
+            } 
+             
 
             // Step 2 - Use the grid values to lookup the forecast
             //const forecastURL = `https://api.weather.gov/gridpoints/${gridJson.properties.gridId}/${gridJson.properties.gridX},${gridJson.properties.gridY}/forecast`;
             
             this.logger.verbose(`Forecast URL: ${gridJson.properties.forecast}`);
 
-            let forecastJson: Forecast;
- 
-            try {
-                const response: AxiosResponse = await axios.get(gridJson.properties.forecast, 
-                    {
-                        headers: {
-                            "Content-Encoding": "gzip", 
-                            "User-Agent": userAgent
-                        }, 
-                        timeout: 2000
-                    }
-                );
-                forecastJson = response.data;
+            response = null;
+            attempts = 1;
 
-                // this.logger.verbose("Properties: " + JSON.stringify(forecastJson.properties, null, 4));
+            while (response === null && attempts <= 2) {
+                try {
+                    response = await axios.get(gridJson.properties.forecast, 
+                        {
+                            headers: {
+                                "Content-Encoding": "gzip", 
+                                "User-Agent": userAgent
+                            }, 
+                            timeout: 2000
+                        }
+                    );
+                } catch (e) {
+                    // For more, see: https://github.com/axios/axios#handling-errors
+                    this.logger.error(`ForecastData: forecast(${attempts}): ${e}`);
+                } 
 
-                if (forecastJson !== undefined) {
-                    if (typeof forecastJson.properties                    === "undefined" ||
-                        typeof forecastJson.properties.periods            === "undefined" ||
-                        typeof forecastJson.properties.periods[0].number  === "undefined") {
-                        this.logger.error("Missing forecast values");
-                        this.logger.verbose(JSON.stringify(forecastJson, null, 4));
-                        return null;
-                    }
-                } else {
-                    this.logger.error("Missing data from forecast call");
-                    return null;
-                }                 
-            } catch(e) {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e}`);
-                //this.logger.error(JSON.stringify(e, null, 4));  // We sometimes get a 500, not sure why
-                return null;
+                if (response !== null && attempts !== 1) {
+                    this.logger.info("Retry of forecast GET worked!!!");
+                }
+                attempts++;
             }
 
+            if (response === null) {
+                this.logger.error("No forecast data");
+                return null;
+            }
+            
+            const forecastJson: Forecast = response.data;
+
+            // this.logger.verbose("Properties: " + JSON.stringify(forecastJson.properties, null, 4));
+
+            if (forecastJson !== undefined) {
+                if (typeof forecastJson.properties                    === "undefined" ||
+                    typeof forecastJson.properties.periods            === "undefined" ||
+                    typeof forecastJson.properties.periods[0].number  === "undefined") {
+                    this.logger.error("Missing forecast values");
+                    this.logger.verbose(JSON.stringify(forecastJson, null, 4));
+                    return null;
+                }
+            } else {
+                this.logger.error("Missing data from forecast call");
+                return null;
+            }                 
+           
             summary.forecast = forecastJson;
 
             // Step 3 - Look up the active alerts
             const alertsURL = `https://api.weather.gov/alerts/active?point=${lat},${lon}`; 
             this.logger.verbose(`Alerts URL: ${alertsURL}`);
 
-            let alertsJson: Alerts;
- 
-            try {
-                const response: AxiosResponse = await axios.get(alertsURL, 
-                    {
-                        headers: {
-                            "Content-Encoding": "gzip", 
-                            "User-Agent": userAgent
-                        }, 
-                        timeout: 2000
-                    }
-                );
+            response = null;
+            attempts = 1;
+
+            while (response === null && attempts <= 2) {
+                try {
+                    response = await axios.get(alertsURL, 
+                        {
+                            headers: {
+                                "Content-Encoding": "gzip", 
+                                "User-Agent": userAgent
+                            }, 
+                            timeout: 2000
+                        }
+                    );
+                } catch (e) {
+                    // For more, see: https://github.com/axios/axios#handling-errors
+                    this.logger.error(`ForecastData: alert(${attempts}): ${e}`);
+                }
                 
-                alertsJson = response.data;
+                if (response !== null && attempts !== 1) {
+                    this.logger.info("Retry of alert GET worked!!!");
+                }
+                attempts++;
+            }
 
-                // this.logger.verbose("Alerts: " + JSON.stringify(alertsJson, null, 4));
-
-                if (forecastJson !== undefined) {
-                    if (typeof alertsJson.features === "undefined") {
-                        this.logger.error("Missing alert values");
-                        this.logger.verbose(JSON.stringify(alertsJson, null, 4));
-                        return null;
-                    }
-                } else {
-                    this.logger.error("Missing data from alert call");
-                    return null;
-                } 
-
-                
-            } catch(e) {
-                this.logger.error(`ForecastData: Error getting alert data: ${e}`);
+            if (response === null) {
+                this.logger.error("No alert data");
                 return null;
             }
+
+            const alertsJson: Alerts = response.data;
+ 
+            
+            if (alertsJson !== undefined) {
+                if (typeof alertsJson.features === "undefined") {
+                    this.logger.error("Missing alert values");
+                    this.logger.verbose(JSON.stringify(alertsJson, null, 4));
+                    return null;
+                }
+            } else {
+                this.logger.error("Missing data from alert call");
+                return null;
+            } 
+
             summary.alerts = alertsJson;
 
             return summary;

@@ -183,6 +183,7 @@ export class ForecastImage {
                 const response: AxiosResponse = await axios.get(iconUrl, {responseType: "stream"} );
                 picture = await pure.decodePNGFromStream(response.data);
             } catch (e) {
+                this.logger.warn(`ForecastImage: failed to get icon: ${iconUrl}`);
                 picture = null;
             }
 
