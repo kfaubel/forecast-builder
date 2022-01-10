@@ -80,13 +80,22 @@ export class Kache implements KacheInterface {
     }
 
     public set(key: string, newItem: unknown, expirationTime: number): void {
-        const comment: string = new Date(expirationTime).toString();
-        this.logger.verbose(`Cache set: Key: ${key}, exp: ${comment}`);
+        try {
+            const comment: string = new Date(expirationTime).toString();
+            this.logger.verbose(`Cache set: Key: ${key}, exp: ${comment}`);
 
-        const cacheItem = {expiration: expirationTime, comment: comment, item: newItem};
-        this.cacheStorage[key as keyof CacheStorage] =  cacheItem;
+            const cacheItem = {expiration: expirationTime, comment: comment, item: newItem};
+            this.cacheStorage[key as keyof CacheStorage] =  cacheItem;
 
-        // Does this need to be synchronous?
-        fs.writeFileSync(this.cachePath, JSON.stringify(this.cacheStorage, null, 4));
+            // Does this need to be synchronous?
+            fs.writeFileSync(this.cachePath, JSON.stringify(this.cacheStorage, null, 4));
+        } catch(e) {
+            if (e instanceof Error) {
+                this.logger.error(`Kache: Error saving new item: ${e.message}`);
+                this.logger.error(`${e.stack}`);
+            } else {
+                this.logger.error(`Kache: failed saving item: ${e}`);
+            }
+        }
     }
 }

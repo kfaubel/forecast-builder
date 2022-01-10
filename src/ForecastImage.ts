@@ -1,13 +1,17 @@
+/* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios from "axios"; 
 import path from "path";
-import { Stream } from "stream";
+import fs from "fs";
+import { Readable, Stream, Writable } from "stream";
 import jpeg from "jpeg-js";
+import { PNG } from "pngjs";
 import * as pure from "pureimage";
 import dateFormat from "dateformat"; // https://www.npmjs.com/package/dateformat
 import { ForecastData, Summary, Forecast, ForecastProperties, ForecastPropertiesPeriod, Alerts } from "./ForecastData";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface} from "./Kache";
+import { ImageWriterInterface } from "./SimpleImageWriter";
 
 export interface ImageResult {
     imageType: string;
@@ -24,10 +28,12 @@ export class ForecastImage {
     private forecastData: ForecastData;
     private cache: KacheInterface;
     private logger: LoggerInterface;
+    private writer: ImageWriterInterface;
 
-    constructor(logger: LoggerInterface, cache: KacheInterface) {
+    constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface) {
         this.logger = logger;
         this.cache = cache;
+        this.writer = writer;
         this.forecastData = new ForecastData(this.logger, this.cache);
     }
 
@@ -167,24 +173,75 @@ export class ForecastImage {
         }
 
         for (const period of summaryJson.forecast.properties.periods) {
+            this.logger.info(`Period: ${period.number}: ${period.startTime}`);
             ctx.font = mediumFontBold;
 
             // Draw the temp in red for daytime high and blue for overnight low
             ctx.fillStyle = period.isDaytime === true ? daytimeTempColor : nighttimeTempColor;
             ctx.centerText(`${period.temperature} ${period.temperatureUnit}`, originX + (columnWidth * col) + columnWidth/2, originY + (rowHeight * row) + tempY);
 
-            let picture: jpeg.BufferRet | null = null;
+            //let picture: jpeg.BufferRet | null = null;
+            // picture is actually of type Bitmap but that type is internal to pureimage
+            let picture = pure.make(150, 150);
 
             // Now get the icon.  The icon in the period element ends in "=medium".  We want size 150.
             // We could ask for size 200 and the iamge would be clearer but the label (e.g.: "30%"") is too small
+            // An iconUrl looks like: https://api.weather.gov/icons/land/day/rain,60?size=150
             const iconUrl = period.icon.replace("=medium", "=150");
 
-            try {
-                const response: AxiosResponse = await axios.get(iconUrl, {responseType: "stream"} );
-                picture = await pure.decodePNGFromStream(response.data);
-            } catch (e) {
-                this.logger.warn(`ForecastImage: failed to get icon: ${iconUrl}`);
-                picture = null;
+            interface Base64ImageStr {
+                dataStr: string;  // This is the base64 encoded PNG file contents
+            }
+            const base64ImageStr: Base64ImageStr = this.cache.get(iconUrl) as Base64ImageStr;
+
+            if (base64ImageStr !== null) {
+                
+                const dataStream = new Readable({
+                    read() {
+                        const imageData = Buffer.from(base64ImageStr.dataStr, "base64"); //.toString("binary");
+                        this.push(imageData);
+                        this.push(null);
+                    }
+                });
+              
+                picture = await pure.decodePNGFromStream(dataStream);
+
+                this.logger.info("filled picture data");
+                
+            } else {
+                try {
+                    const response: AxiosResponse = await axios.get(iconUrl, {responseType: "stream"} );
+                    picture = await pure.decodePNGFromStream(response.data);
+                    
+                } catch (e) {
+                    this.logger.warn(`ForecastImage: failed to get icon: ${iconUrl}`);
+                    this.logger.error(`Exception: ${e}`);
+                    picture = null;
+                }
+
+                if (picture !== null) {
+                    let buffer = Buffer.alloc(0);
+                    let base64Data = "";
+
+                    const writeableStream = new Writable({
+                        write(chunk, encoding, callback) {
+                            buffer = Buffer.concat([buffer, chunk]);
+                            callback();
+                        },
+                        destroy() {                            
+                            console.log(`destroy: Buffer size: ${buffer.length}`);
+                            base64Data = buffer.toString("base64");
+                        }
+                    });
+
+                    await pure.encodePNGToStream(picture, writeableStream);
+
+                    const cachePicture: Base64ImageStr = {dataStr: base64Data};
+
+                    const expireMs: number = new Date().getTime() + 10 * 365 * 24 * 60 * 60 * 1000; // 10 years
+                    this.cache.set(iconUrl, cachePicture, expireMs);
+                }
+
             }
 
             if (picture !== null) {

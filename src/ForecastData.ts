@@ -1,5 +1,4 @@
 import axios, { AxiosResponse } from "axios";
-// import moment from "moment-timezone";  // https://momentjs.com/timezone/docs/ &  https://momentjs.com/docs/
 import { LoggerInterface } from "./Logger";
 import { KacheInterface } from "./Kache";
 
@@ -118,6 +117,8 @@ export class ForecastData {
                 if (response !== null && attempts !== 1) {
                     this.logger.info("Retry of grid GET worked!!!");
                 }
+
+                await this.promiseTimeout(1000);
                 attempts++;
             }
 
@@ -126,10 +127,7 @@ export class ForecastData {
                 return null;
             }
                 
-            //this.logger.verbose(JSON.stringify(response.data, null, 4));
             const gridJson: Grid = response.data;
-
-            // this.logger.verbose("Properties: " + JSON.stringify(gridJson.properties, null, 4));
 
             if (gridJson !== undefined) {
                 if (typeof gridJson.properties        === "undefined" ||
@@ -172,6 +170,8 @@ export class ForecastData {
                 if (response !== null && attempts !== 1) {
                     this.logger.info("Retry of forecast GET worked!!!");
                 }
+
+                await this.promiseTimeout(1000);
                 attempts++;
             }
 
@@ -181,8 +181,6 @@ export class ForecastData {
             }
             
             const forecastJson: Forecast = response.data;
-
-            // this.logger.verbose("Properties: " + JSON.stringify(forecastJson.properties, null, 4));
 
             if (forecastJson !== undefined) {
                 if (typeof forecastJson.properties                    === "undefined" ||
@@ -225,6 +223,8 @@ export class ForecastData {
                 if (response !== null && attempts !== 1) {
                     this.logger.info("Retry of alert GET worked!!!");
                 }
+
+                await this.promiseTimeout(1000);
                 attempts++;
             }
 
@@ -259,5 +259,11 @@ export class ForecastData {
             }
             return null;
         }
+    }
+
+    private promiseTimeout(delayms: number) {
+        return new Promise(function (resolve /*, reject */) {
+            setTimeout(resolve, delayms);
+        });
     }
 }

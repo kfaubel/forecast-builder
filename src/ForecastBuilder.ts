@@ -27,7 +27,7 @@ export class ForecastBuilder {
 
     public async CreateImages(forecastItem: ForecastItem): Promise<boolean>{
         try {
-            const forecastImage: ForecastImage = new ForecastImage(this.logger, this.cache);
+            const forecastImage: ForecastImage = new ForecastImage(this.logger, this.cache, this.writer);
 
             const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location,forecastItem.userAgent);
 
