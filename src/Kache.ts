@@ -34,20 +34,25 @@ export class Kache implements KacheInterface {
         try {
             const cacheData: Buffer | null | undefined = fs.readFileSync(this.cachePath);
             if (cacheData !== undefined && cacheData !== null) {
-                this.logger.verbose(`Cache: Using: ${this.cacheName}`); // ${JSON.stringify(this.cacheStorage, null, 4)}`);
+                //this.logger.verbose(`Cache: Using: ${this.cacheName}`); // ${JSON.stringify(this.cacheStorage, null, 4)}`);
   
                 this.cacheStorage = JSON.parse(cacheData.toString());
 
+                let expiredCount = 0;
+                let activeCount = 0;
                 for (const [key, value] of Object.entries(this.cacheStorage)) {
                     const cacheItem = this.cacheStorage[key];
         
                     if (cacheItem.expiration < new Date().getTime()) {
-                        this.logger.info(`Cache load: '${key}' has expired, deleting`);
+                        //this.logger.info(`Cache load: '${key}' has expired, deleting`);
                         delete this.cacheStorage[key];
+                        expiredCount++;
                     } else {
-                        this.logger.verbose(`Cache load: '${key}' still good.`);
+                        //this.logger.verbose(`Cache load: '${key}' still good.`);
+                        activeCount++;
                     }
                 }
+                this.logger.verbose(`Cache: ${this.cacheName} load: ${activeCount} active, ${expiredCount} expired.`);
             } else {
                 this.logger.verbose(`Cache: Creating: ${this.cacheName}`);
             }
@@ -66,14 +71,14 @@ export class Kache implements KacheInterface {
             const now = new Date();
             if (expiration > now.getTime()) {
                 // object is current
-                this.logger.verbose(`Cache: Key: '${key}' - cache hit`);
+                this.logger.verbose(`Cache: hit     Key: '${key}'`);
                 return item;
             } else {
                 // object expired
-                this.logger.verbose(`Cache: Key: '${key}' - cache expired`);
+                this.logger.verbose(`Cache: expired Key: '${key}'`);
             }
         } else {
-            this.logger.verbose(`Cache: Key: '${key}' - cache miss`);
+            this.logger.verbose(`Cache: miss    Key: '${key}' - cache miss`);
         }
 
         return null;
@@ -91,10 +96,10 @@ export class Kache implements KacheInterface {
             fs.writeFileSync(this.cachePath, JSON.stringify(this.cacheStorage, null, 4));
         } catch(e) {
             if (e instanceof Error) {
-                this.logger.error(`Kache: Error saving new item: ${e.message}`);
+                this.logger.error(`Cache: Error saving new item: ${e.message}`);
                 this.logger.error(`${e.stack}`);
             } else {
-                this.logger.error(`Kache: failed saving item: ${e}`);
+                this.logger.error(`Cache: failed saving item: ${e}`);
             }
         }
     }

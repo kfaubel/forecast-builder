@@ -95,7 +95,7 @@ export class ForecastImage {
         const alertY                           = 900;  // First row of the alert
         const alertSpacingY                    = 60;   // Offset for 2nd and 3rd row
                                            
-        const backgroundColor                  = "rgb(255, 255,   255)";
+        const backgroundColor                  = "rgb(255, 255,   255)"; // See myFillRect call below
         const titleColor                       = "rgb(0,     0,   150)";
         const daytimeTempColor                 = "rgb(255,   0,   0)";
         const nighttimeTempColor               = "rgb(0,     0,   255)";
@@ -144,7 +144,7 @@ export class ForecastImage {
         // Fill the bitmap
         ctx.fillStyle = backgroundColor;
         //ctx.fillRect(0, 0, imageWidth, imageHeight);
-        this.myFillRect(img.data, 0, 0, imageWidth, imageHeight, imageWidth, 0xE0, 0xE0, 0xFF, 0);
+        this.myFillRect(img.data, 0, 0, imageWidth, imageHeight, imageWidth, 0xF0, 0xF0, 0xFF, 0);
 
         // Draw the title
         ctx.fillStyle = titleColor;
@@ -173,7 +173,6 @@ export class ForecastImage {
         }
 
         for (const period of summaryJson.forecast.properties.periods) {
-            this.logger.info(`Period: ${period.number}: ${period.startTime}`);
             ctx.font = mediumFontBold;
 
             // Draw the temp in red for daytime high and blue for overnight low
@@ -205,8 +204,6 @@ export class ForecastImage {
                 });
               
                 picture = await pure.decodePNGFromStream(dataStream);
-
-                this.logger.info("filled picture data");
                 
             } else {
                 try {
@@ -229,7 +226,7 @@ export class ForecastImage {
                             callback();
                         },
                         destroy() {                            
-                            console.log(`destroy: Buffer size: ${buffer.length}`);
+                            //console.log(`destroy: Buffer size: ${buffer.length}`);
                             base64Data = buffer.toString("base64");
                         }
                     });
@@ -266,12 +263,7 @@ export class ForecastImage {
         ctx.fillStyle = alertColor;
         let alertStr = "No active alerts";
 
-        if (summaryJson.alerts !== null && 
-            typeof summaryJson.alerts.features !== "undefined" &&
-            typeof summaryJson.alerts.features[0] !== "undefined" &&
-            typeof summaryJson.alerts.features[0].properties !== "undefined" &&
-            typeof summaryJson.alerts.features[0].properties.parameters !== "undefined" &&
-            typeof summaryJson.alerts.features[0].properties.parameters.NWSheadline !== "undefined") {
+        if (summaryJson?.alerts?.features[0]?.properties?.parameters?.NWSheadline) {
             alertStr = "Active alert: " + summaryJson.alerts.features[0].properties.headline;
         }
 
