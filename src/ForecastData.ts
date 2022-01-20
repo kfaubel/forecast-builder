@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface } from "./Kache";
 
@@ -85,15 +85,15 @@ export class ForecastData {
         while (response === null && attempts <= retries) {
 
             await axios.get(url, options)
-                .then((res) => {
+                .then((res: AxiosResponse) => {
                     if (attempts !== 1) {
                         this.logger.verbose("Second try succeeded");
                     }
 
                     response = res;
                 })
-                .catch((error) => {
-                    this.logger.error(`ForecastData: GET (${attempts}): Status: ${error.response.status}`);
+                .catch((error: AxiosError) => {
+                    this.logger.error(`ForecastData: GET (${attempts}): Status: ${error?.response?.status}`);
                     response = null;
                 }); 
 

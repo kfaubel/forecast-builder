@@ -1,6 +1,6 @@
 /* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import axios from "axios"; 
+import axios, { AxiosResponse, AxiosError } from "axios"; 
 import path from "path";
 import fs from "fs";
 import { Readable, Stream, Writable } from "stream";
@@ -18,11 +18,11 @@ export interface ImageResult {
     imageData: jpeg.BufferRet | null;
 }
 
-interface AxiosResponse {
-    data: Stream;
-    status: number;
-    statusText: string;
-}
+// interface AxiosResponse {
+//     data: Stream;
+//     status: number;
+//     statusText: string;
+// }
 
 export class ForecastImage {
     private forecastData: ForecastData;
@@ -206,15 +206,14 @@ export class ForecastImage {
                 picture = await pure.decodePNGFromStream(dataStream);
                 
             } else {
-                try {
-                    const response: AxiosResponse = await axios.get(iconUrl, {responseType: "stream"} );
-                    picture = await pure.decodePNGFromStream(response.data);
-                    
-                } catch (e) {
-                    this.logger.warn(`ForecastImage: failed to get icon: ${iconUrl}`);
-                    this.logger.error(`Exception: ${e}`);
-                    picture = null;
-                }
+                await axios.get(iconUrl, {responseType: "stream"})
+                    .then(async (res: AxiosResponse) => {
+                        picture = await pure.decodePNGFromStream(res.data);
+                    })
+                    .catch((error: AxiosError) => {
+                        this.logger.error(`ForecastImage: No Icon: Status: ${error?.response?.status}`);
+                        picture = null;
+                    }); 
 
                 if (picture !== null) {
                     let buffer = Buffer.alloc(0);
@@ -264,7 +263,7 @@ export class ForecastImage {
         let alertStr = "No active alerts";
 
         if (summaryJson?.alerts?.features[0]?.properties?.parameters?.NWSheadline) {
-            alertStr = "Active alert: " + summaryJson.alerts.features[0].properties.headline;
+            alertStr = "Active alert: " + summaryJson.alerts.features[0].properties.parameters.NWSheadline;
         }
 
         const alertLines: string[] = this.splitLine(alertStr, ctx, imageWidth - 200, 3);       
