@@ -35,15 +35,15 @@ export class ForecastBuilder {
                 this.logger.info(`CreateImages: Writing: ${forecastItem.fileName}`);
                 this.writer.saveFile(forecastItem.fileName, result.imageData.data);
             } else {
-                this.logger.error("CreateImages: No imageData returned from ForecastImage.getImage()");
+                this.logger.error(`CreateImages: No image for ${forecastItem.fileName}`);
                 return false;
             }
         } catch (e) {
             if (e instanceof Error) {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e.message}`);
+                this.logger.error(`ForecastData: Error getting forecast data for ${forecastItem.fileName}: ${e.message}`);
                 this.logger.error(`${e.stack}`);
             } else {
-                this.logger.error(`ForecastData: Error getting forecast data: ${e}`);
+                this.logger.error(`ForecastData: Error getting forecast data for ${forecastItem.fileName}: ${e}`);
             }
             return false;
         }

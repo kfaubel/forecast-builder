@@ -93,7 +93,11 @@ export class ForecastData {
                     response = res;
                 })
                 .catch((error: AxiosError) => {
-                    this.logger.error(`ForecastData: GET (${attempts}): Status: ${error?.response?.status}`);
+                    if (typeof error?.response?.status === "string") {
+                        this.logger.error(`ForecastData: GET attempt: ${attempts}: Status: ${error?.response?.status}`);
+                    } else {
+                        this.logger.error(`ForecastData: GET attempt: ${attempts}: Error: ${error}`);
+                    }
                     response = null;
                 }); 
 

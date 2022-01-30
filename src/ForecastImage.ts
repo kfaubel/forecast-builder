@@ -2,13 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios, { AxiosResponse, AxiosError } from "axios"; 
 import path from "path";
-import fs from "fs";
-import { Readable, Stream, Writable } from "stream";
+import { Readable, Writable } from "stream";
 import jpeg from "jpeg-js";
-import { PNG } from "pngjs";
 import * as pure from "pureimage";
 import dateFormat from "dateformat"; // https://www.npmjs.com/package/dateformat
-import { ForecastData, Summary, Forecast, ForecastProperties, ForecastPropertiesPeriod, Alerts } from "./ForecastData";
+import { ForecastData, Summary } from "./ForecastData";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface} from "./Kache";
 import { ImageWriterInterface } from "./SimpleImageWriter";
@@ -17,12 +15,6 @@ export interface ImageResult {
     imageType: string;
     imageData: jpeg.BufferRet | null;
 }
-
-// interface AxiosResponse {
-//     data: Stream;
-//     status: number;
-//     statusText: string;
-// }
 
 export class ForecastImage {
     private forecastData: ForecastData;
@@ -37,20 +29,35 @@ export class ForecastImage {
         this.forecastData = new ForecastData(this.logger, this.cache);
     }
 
-    // This optimized fillRect was derived from the pureimage source code: https://github.com/joshmarinacci/node-pureimage/tree/master/src
-    // To fill a 1920x1080 image on a core i5, this saves about 1.5 seconds
-    // x, y       - position of the rect
-    // w, h       - size of the rect
-    // iw         - width of the image being written into, needed to calculate index into the buffer
-    // r, g, b, a - values to draw
-    private myFillRect(image: Buffer, x: number, y: number, w: number, h: number, iw: number, r: number, g: number, b: number, a: number) {
+    /**
+     * Optimized fill routine for pureimage
+     * - See https://github.com/joshmarinacci/node-pureimage/tree/master/src
+     * - To fill a 1920x1080 image on a core i5, this saves about 1.5 seconds
+     * @param img it has 3 properties height, width and data
+     * @param x X position of the rect
+     * @param y Y position of the rect
+     * @param w Width of rect
+     * @param h Height of rect
+     * @param rgb Fill color in "#112233" format
+     */
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     private myFillRect(img: any, x: number, y: number, w: number, h: number, rgb: string) {
+        const colorValue = parseInt(rgb.substring(1), 16);
+
+        // The shift operator forces js to perform the internal ToUint32 (see ecmascript spec 9.6)
+        const r = (colorValue >>> 16) & 0xFF;
+        const g = (colorValue >>> 8)  & 0xFF;  
+        const b = (colorValue)        & 0xFF;
+        const a = 0xFF;
+
         for(let i = y; i < y + h; i++) {                
             for(let j = x; j < x + w; j++) {   
-                const index = (i * iw + j) * 4;     
-                image[index + 0] = r; 
-                image[index + 1] = g; 
-                image[index + 2] = b; 
-                image[index + 3] = a; 
+                const index = (i * img.width + j) * 4;   
+                
+                img.data[index + 0] = r;
+                img.data[index + 1] = g;     
+                img.data[index + 2] = b;     
+                img.data[index + 3] = a; 
             }
         }
     }
@@ -88,14 +95,13 @@ export class ForecastImage {
         const rowHeight                        = 320;  // Everything in the second row is 320 below the first
         const weekdayY                         = 80;   // Draw the weekend 50 pixels below the start of the first row
         const tempY                            = 150;  // Draw the temp value 180 pixels below the start of the first row
-        const iconWidth                        = 200;  // Size of the icon
         const iconHeight                       = 200;  // 
         const iconX                            = 75;   // Posiiton of the icon within the column1
         const iconY                            = 180;  // Position of the icon within the row
         const alertY                           = 900;  // First row of the alert
         const alertSpacingY                    = 60;   // Offset for 2nd and 3rd row
                                            
-        const backgroundColor                  = "rgb(255, 255,   255)"; // See myFillRect call below
+        const backgroundColor                  = "#FFFFFF"; // See myFillRect call below
         const titleColor                       = "rgb(0,     0,   150)";
         const daytimeTempColor                 = "rgb(255,   0,   0)";
         const nighttimeTempColor               = "rgb(0,     0,   255)";
@@ -105,7 +111,6 @@ export class ForecastImage {
         const largeFont                        = "80px 'OpenSans-Bold'";      // Title
         const mediumFont                       = "48px 'OpenSans-Regular'";   // weekdays
         const mediumFontBold                   = "48px 'OpenSans-Bold'";      // temps and alerts
-        const smallFont                        = "24px 'OpenSans-Bold'";   
 
         // When used as an npm package, fonts need to be installed in the top level of the main project
         const fntBold     = pure.registerFont(path.join(".", "fonts", "OpenSans-Bold.ttf"),"OpenSans-Bold");
@@ -115,8 +120,6 @@ export class ForecastImage {
         fntBold.loadSync();
         fntRegular.loadSync();
         fntRegular2.loadSync();
-
-        const regularStroke = 2;
 
         const img = pure.make(imageWidth, imageHeight);
         const ctx = img.getContext("2d");
@@ -142,9 +145,7 @@ export class ForecastImage {
         };
 
         // Fill the bitmap
-        ctx.fillStyle = backgroundColor;
-        //ctx.fillRect(0, 0, imageWidth, imageHeight);
-        this.myFillRect(img.data, 0, 0, imageWidth, imageHeight, imageWidth, 0xF0, 0xF0, 0xFF, 0);
+        this.myFillRect(img, 0, 0, imageWidth, imageHeight, backgroundColor);
 
         // Draw the title
         ctx.fillStyle = titleColor;
@@ -224,8 +225,7 @@ export class ForecastImage {
                             buffer = Buffer.concat([buffer, chunk]);
                             callback();
                         },
-                        destroy() {                            
-                            //console.log(`destroy: Buffer size: ${buffer.length}`);
+                        destroy() { 
                             base64Data = buffer.toString("base64");
                         }
                     });
@@ -237,7 +237,6 @@ export class ForecastImage {
                     const expireMs: number = new Date().getTime() + 10 * 365 * 24 * 60 * 60 * 1000; // 10 years
                     this.cache.set(iconUrl, cachePicture, expireMs);
                 }
-
             }
 
             if (picture !== null) {
@@ -280,8 +279,16 @@ export class ForecastImage {
         };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private splitLine(inStr: string, ctx:any, maxPixelLength: number, maxLines: number) {
+    /**
+     * Split a long string into chunks to display on multiple lines
+     * @param inStr Input string
+     * @param ctx Canvas context used to measure line lenght in pixels
+     * @param maxPixelLength Max length of a line in pixels
+     * @param maxLines Max lines to return, remainder is discarded
+     * @returns A list of strings
+     */
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     private splitLine(inStr: string, ctx: any, maxPixelLength: number, maxLines: number): Array<string> {
         const list: string[] = [];
 
         if (maxLines < 1 || maxLines > 10) {
@@ -291,15 +298,19 @@ export class ForecastImage {
         
         while (inStr.length > 0) {
             let breakIndex: number;
+
+            // Will what's left, fit in a line?
             if (ctx.measureText(inStr).width <= maxPixelLength) {
                 list.push(inStr);
                 return list;
             }
 
+            // Walk back from the end of the input string to find a chuck that will fit on a line.
             breakIndex = inStr.length - 1;
             let activeLine = "";
             while (breakIndex > 0) {
                 if (inStr.charAt(breakIndex) === " ") {
+                    // We found a break, will the chunk fit
                     activeLine = inStr.substring(0, breakIndex);
                     if (ctx.measureText(activeLine).width <= maxPixelLength) {
                         break;
