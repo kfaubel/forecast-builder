@@ -103,8 +103,8 @@ export class ForecastData {
 
             if (attempts < retries) {
                 await this.promiseTimeout(1000);
-                attempts++;
             }
+            attempts++;
         }
 
         return response;
