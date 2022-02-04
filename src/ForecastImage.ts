@@ -63,25 +63,13 @@ export class ForecastImage {
     }
 
     public async getImage(lat: string, lon: string, location: string, userAgent: string): Promise<ImageResult | null> {
-        this.logger.info(`ForecastImage: request for ${location}`);
+        this.logger.verbose(`ForecastImage: request for ${location}`);
 
         const title = `Forecast for ${location}`;
 
         let summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
 
-        if (summaryJson === null) {
-            // try again
-            this.logger.warn("getForecastData failed, retrying");
-            summaryJson = await  this.forecastData.getForecastData(lat, lon, userAgent);
-        }
-
-        if (summaryJson === null) {
-            this.logger.warn("ForecastImage: Failed to get data, no image available.");
-            return null;
-        }
-
-        if (summaryJson.forecast === null) {
-            this.logger.warn("ForecastImage: Failed to get forecast data, no image available.");
+        if (summaryJson === null || summaryJson.forecast === null) {
             return null;
         }
 
@@ -211,8 +199,8 @@ export class ForecastImage {
                     .then(async (res: AxiosResponse) => {
                         picture = await pure.decodePNGFromStream(res.data);
                     })
-                    .catch((error: AxiosError) => {
-                        this.logger.error(`ForecastImage: No Icon: Status: ${error?.response?.status}`);
+                    .catch((error) => {
+                        this.logger.warn(`ForecastImage: No Icon: Error: ${error}`);
                         picture = null;
                     }); 
 
@@ -292,8 +280,8 @@ export class ForecastImage {
         const list: string[] = [];
 
         if (maxLines < 1 || maxLines > 10) {
-            this.logger.error(`splitLine: maxLines too large (${maxLines})`);
-            return list;
+            this.logger.info(`splitLine: maxLines too large (${maxLines})`);
+            maxLines = 4;
         }
         
         while (inStr.length > 0) {

@@ -32,19 +32,14 @@ export class ForecastBuilder {
             const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location,forecastItem.userAgent);
 
             if (result !== null && result.imageData !== null ) {
-                this.logger.info(`CreateImages: Writing: ${forecastItem.fileName}`);
+                this.logger.info(`ForecastBuilder: Writing: ${forecastItem.fileName}`);
                 this.writer.saveFile(forecastItem.fileName, result.imageData.data);
             } else {
-                this.logger.error(`CreateImages: No image for ${forecastItem.fileName}`);
+                this.logger.warn(`ForecastBuilder: No image for ${forecastItem.fileName}`);
                 return false;
             }
         } catch (e) {
-            if (e instanceof Error) {
-                this.logger.error(`ForecastData: Error getting forecast data for ${forecastItem.fileName}: ${e.message}`);
-                this.logger.error(`${e.stack}`);
-            } else {
-                this.logger.error(`ForecastData: Error getting forecast data for ${forecastItem.fileName}: ${e}`);
-            }
+            this.logger.error(`ForecastBuilder: Error getting forecast data for ${forecastItem.fileName}: ${e}`);
             return false;
         }
 

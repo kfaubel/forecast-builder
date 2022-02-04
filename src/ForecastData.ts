@@ -87,13 +87,13 @@ export class ForecastData {
             await axios.get(url, options)
                 .then((res: AxiosResponse) => {
                     if (attempts !== 1) {
-                        this.logger.verbose("Second try succeeded");
+                        this.logger.verbose("ForecastData: Second try succeeded");
                     }
 
                     response = res;
                 })
                 .catch((error: AxiosError) => {
-                    this.logger.error(`ForecastData: GET attempt: ${attempts}: Error: ${error}`);
+                    this.logger.warn(`ForecastData: GET attempt: ${attempts}: Error: ${error}`);
                     response = null;
                 }); 
 
@@ -122,37 +122,37 @@ export class ForecastData {
 
             // Step 1 - lookup the grid
             const gridURL = `https://api.weather.gov/points/${lat},${lon}`;
-            this.logger.verbose(`Grid URL: ${gridURL}`);
+            this.logger.verbose(`ForecastData: Grid URL: ${gridURL}`);
 
             response = await this.getSomeData(gridURL, userAgent, 2);
 
             if (response?.data?.properties?.forecast === undefined) {
-                this.logger.error("Missing response.data.properties.forecast from grid GET call");
+                this.logger.warn("ForecastData: Missing response.data.properties.forecast from grid GET call");
                 return null;
             }  
 
             const forecastUrl = response?.data?.properties?.forecast;    
 
             // Step 2 - Use the grid values to lookup the forecast
-            this.logger.verbose(`Forecast URL: ${forecastUrl}`);
+            this.logger.verbose(`ForecastData: URL: ${forecastUrl}`);
             response = await this.getSomeData(forecastUrl, userAgent, 2);
             
             if (response?.data?.properties?.periods[0]?.number  === undefined) {
-                this.logger.error("Missing response.data.properties.periods[0].number values");
+                this.logger.warn("ForecastData: Missing response.data.properties.periods[0].number values");
                 return null;
             }
-            this.logger.info(`Forecast data generated at: ${response.data.properties.generatedAt}`);
+            this.logger.verbose(`ForecastData: data generated at: ${response.data.properties.generatedAt}`);
             
             summary.forecast = response.data;
 
             // Step 3 - Look up the active alerts
             const alertsURL = `https://api.weather.gov/alerts/active?point=${lat},${lon}`; 
-            this.logger.verbose(`Alerts URL: ${alertsURL}`);
+            this.logger.verbose(`ForecastData: Alerts URL: ${alertsURL}`);
 
             response = await this.getSomeData(alertsURL, userAgent, 2);
 
             if (response?.data?.features === undefined) {
-                this.logger.error("Missing response.data.features from alert call");
+                this.logger.warn("ForecastData: Missing response.data.features from alert call");
                 return null;
             }
 

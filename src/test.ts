@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 async function run() {
     dotenv.config();  // Load var from .env into the environment
     
-    const logger: Logger = new Logger("forecast-builder", "verbose"); 
+    const logger: Logger = new Logger("forecast-builder", "info"); 
     const cache: Kache = new Kache(logger, "forecast-cache.json");
     const simpleImageWriter: SimpleImageWriter = new SimpleImageWriter(logger, ".");
 
