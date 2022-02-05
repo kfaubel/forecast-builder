@@ -23,11 +23,10 @@ async function run() {
         location: "Onset, MA",
         lat: "41.85",
         lon: "-70.65",
-        timeZone: "America/New_York",
-        userAgent: userAgent,
+        timeZone: "America/New_York"
     };
 
-    await forecastBuilder.CreateImages(forecastData);
+    await forecastBuilder.CreateImages(forecastData, userAgent);
     
     logger.info("Done"); 
 }

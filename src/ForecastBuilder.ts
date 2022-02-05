@@ -11,7 +11,6 @@ export interface ForecastItem{
     lat: string;
     lon: string;
     timeZone: string;       // "America/New_York"
-    userAgent: string;      // email address
 }
 
 export class ForecastBuilder {
@@ -25,11 +24,11 @@ export class ForecastBuilder {
         this.writer = writer;
     }
 
-    public async CreateImages(forecastItem: ForecastItem): Promise<boolean>{
+    public async CreateImages(forecastItem: ForecastItem, userAgent: string): Promise<boolean>{
         try {
             const forecastImage: ForecastImage = new ForecastImage(this.logger, this.cache, this.writer);
 
-            const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location,forecastItem.userAgent);
+            const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location, userAgent);
 
             if (result !== null && result.imageData !== null ) {
                 this.logger.info(`ForecastBuilder: Writing: ${forecastItem.fileName}`);

@@ -67,7 +67,7 @@ export class ForecastImage {
 
         const title = `Forecast for ${location}`;
 
-        let summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
+        const summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
 
         if (summaryJson === null || summaryJson.forecast === null) {
             return null;
