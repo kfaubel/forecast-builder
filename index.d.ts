@@ -29,5 +29,5 @@ export interface ImageWriterInterface {
 
 export declare class ForecastBuilder {
     constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface);
-    CreateImages(forecastItem: ForecastItem): Promise<boolean>
+    CreateImages(forecastItem: ForecastItem, userAgent: string): Promise<boolean>
 }
