@@ -79,13 +79,17 @@ export class ForecastData {
                 "User-Agent": userAgent, 
                 "Feature-Flags": ""
             },
-            timeout: 2000
+            timeout: 20000
         };
         
         while (response === null && attempts <= retries) {
 
+            const startTime = new Date();
             await axios.get(url, options)
                 .then((res: AxiosResponse) => {
+                    if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
+                        this.logger.info(`ForecastData: GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
+                    }
                     if (attempts !== 1) {
                         this.logger.verbose("ForecastData: Second try succeeded");
                     }

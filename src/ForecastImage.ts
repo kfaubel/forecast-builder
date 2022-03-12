@@ -1,11 +1,11 @@
 /* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import axios, { AxiosResponse, AxiosError } from "axios"; 
+import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from "axios"; 
 import path from "path";
 import { Readable, Writable } from "stream";
 import jpeg from "jpeg-js";
 import * as pure from "pureimage";
-import dateFormat from "dateformat"; // https://www.npmjs.com/package/dateformat
+import dateFormat from "dateformat"; // https://www.npmjs.com/package/dateformat - Stay with: "dateformat": "4.6.3".  Don't go to v5.
 import { ForecastData, Summary } from "./ForecastData";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface} from "./Kache";
@@ -195,8 +195,20 @@ export class ForecastImage {
                 picture = await pure.decodePNGFromStream(dataStream);
                 
             } else {
-                await axios.get(iconUrl, {responseType: "stream"})
+                const options: AxiosRequestConfig = {
+                    responseType: "stream",
+                    headers: {
+                        "Content-Encoding": "gzip",
+                    },
+                    timeout: 20000
+                };
+                
+                const startTime = new Date();
+                await axios.get(iconUrl, options)
                     .then(async (res: AxiosResponse) => {
+                        if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
+                            this.logger.info(`ForecastImage: icon GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
+                        }
                         picture = await pure.decodePNGFromStream(res.data);
                     })
                     .catch((error) => {
