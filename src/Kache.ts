@@ -28,7 +28,7 @@ export class Kache implements KacheInterface {
     constructor(logger: LoggerInterface, cacheName: string) {
         this.logger = logger;
         this.cacheName = cacheName;
-        this.cachePath = path.resolve(__dirname, "..", this.cacheName);
+        this.cachePath = path.resolve(this.cacheName);
         this.cacheStorage = {};
 
         try {

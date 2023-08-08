@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface } from "./Kache";
 
@@ -69,9 +69,8 @@ export class ForecastData {
         this.cache = cache;
     } 
     
-    private async getSomeData(url: string, userAgent: string, retries: number) : Promise<AxiosResponse<any> | null> {
+    private async getSomeData(url: string, userAgent: string) : Promise<AxiosResponse<any> | null> {
         let response: AxiosResponse | null = null;
-        let attempts = 1;
 
         const options: AxiosRequestConfig = {
             headers: {
@@ -81,31 +80,20 @@ export class ForecastData {
             },
             timeout: 20000
         };
-        
-        while (response === null && attempts <= retries) {
 
-            const startTime = new Date();
-            await axios.get(url, options)
-                .then((res: AxiosResponse) => {
-                    if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
-                        this.logger.info(`ForecastData: GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
-                    }
-                    if (attempts !== 1) {
-                        this.logger.verbose("ForecastData: Second try succeeded");
-                    }
+        const startTime = new Date();
+        await axios.get(url, options)
+            .then((res: AxiosResponse) => {
+                if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
+                    this.logger.info(`ForecastData: GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
+                }
 
-                    response = res;
-                })
-                .catch((error: AxiosError) => {
-                    this.logger.warn(`ForecastData: GET attempt: ${attempts}: Error: ${error}`);
-                    response = null;
-                }); 
-
-            if (attempts < retries) {
-                await this.promiseTimeout(1000);
-            }
-            attempts++;
-        }
+                response = res;
+            })
+            .catch((error) => {
+                this.logger.warn(`ForecastData: GET URL: ${url}, ${error}`);
+                response = null;
+            }); 
 
         return response;
     }
@@ -128,7 +116,7 @@ export class ForecastData {
             const gridURL = `https://api.weather.gov/points/${lat},${lon}`;
             this.logger.verbose(`ForecastData: Grid URL: ${gridURL}`);
 
-            response = await this.getSomeData(gridURL, userAgent, 2);
+            response = await this.getSomeData(gridURL, userAgent);
 
             if (response?.data?.properties?.forecast === undefined) {
                 this.logger.warn("ForecastData: Missing response.data.properties.forecast from grid GET call");
@@ -139,7 +127,7 @@ export class ForecastData {
 
             // Step 2 - Use the grid values to lookup the forecast
             this.logger.verbose(`ForecastData: URL: ${forecastUrl}`);
-            response = await this.getSomeData(forecastUrl, userAgent, 2);
+            response = await this.getSomeData(forecastUrl, userAgent);
             
             if (response?.data?.properties?.periods[0]?.number  === undefined) {
                 this.logger.warn("ForecastData: Missing response.data.properties.periods[0].number values");
@@ -153,7 +141,7 @@ export class ForecastData {
             const alertsURL = `https://api.weather.gov/alerts/active?point=${lat},${lon}`; 
             this.logger.verbose(`ForecastData: Alerts URL: ${alertsURL}`);
 
-            response = await this.getSomeData(alertsURL, userAgent, 2);
+            response = await this.getSomeData(alertsURL, userAgent);
 
             if (response?.data?.features === undefined) {
                 this.logger.warn("ForecastData: Missing response.data.features from alert call");

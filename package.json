@@ -1,6 +1,6 @@
 {
   "name": "forecast-builder",
-  "version": "1.0.10",
+  "version": "1.1.0",
   "description": "Create forecast images with data from the NWS",
   "main": "index.js",
   "types": "index.d.ts",
@@ -16,26 +16,24 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "axios": "^0.26.1",
-    "dateformat": "4.6.3",
-    "dotenv": "^16.0.0",
-    "jpeg-js": "^0.4.3",
-    "moment": "^2.29.1",
-    "moment-timezone": "^0.5.34",
-    "pngjs": "^6.0.0",
-    "pureimage": "^0.3.8"
+    "axios": "^1.4.0",
+    "dotenv": "^16.3.1",
+    "jpeg-js": "^0.4.4",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43",
+    "pngjs": "^7.0.0",
+    "pureimage": "^0.3.17"
   },
   "devDependencies": {
-    "@types/node": "^17.0.21",
+    "@types/node": "^20.4.8",
     "@types/pngjs": "^6.0.1",
-    "@typescript-eslint/eslint-plugin": "^5.14.0",
-    "@typescript-eslint/parser": "^5.14.0",
-    "eslint": "^8.11.0",
-    "np": "^7.6.0",
-    "prettier": "^2.5.1",
+    "@typescript-eslint/eslint-plugin": "^6.3.0",
+    "@typescript-eslint/parser": "^6.3.0",
+    "eslint": "^8.46.0",
+    "np": "^8.0.4",
     "shx": "^0.3.4",
-    "ts-node-dev": "^1.1.8",
-    "typescript": "^4.6.2"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.1.6"
   },
   "repository": {
     "type": "git",

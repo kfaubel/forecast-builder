@@ -5,7 +5,7 @@ import path from "path";
 import { Readable, Writable } from "stream";
 import jpeg from "jpeg-js";
 import * as pure from "pureimage";
-import dateFormat from "dateformat"; // https://www.npmjs.com/package/dateformat - Stay with: "dateformat": "4.6.3".  Don't go to v5.
+import moment from "moment-timezone";  // https://momentjs.com/timezone/docs/ &  https://momentjs.com/docs/
 import { ForecastData, Summary } from "./ForecastData";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface} from "./Kache";
@@ -140,17 +140,17 @@ export class ForecastImage {
         ctx.font = largeFont;
         ctx.centerText(title, imageWidth/2, titleOffsetY);
         
-        const labelDate = new Date(summaryJson.forecast.properties.periods[0].startTime);
+        const startTimeMoment = moment(summaryJson.forecast.properties.periods[0].startTime);
 
         // Draw the weekday labels across each column
         for (let i = 0; i < 5; i++) {
             ctx.font = mediumFontBold;
             ctx.fillStyle = weekdayColor;
-            ctx.centerText(dateFormat(labelDate, "dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY);
-            ctx.centerUnderline(dateFormat(labelDate, "dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY, weekdayColor);
+            ctx.centerText(startTimeMoment.format("dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY);
+            ctx.centerUnderline(startTimeMoment.format("dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY, weekdayColor);
 
             // Advance for the next iteration
-            labelDate.setDate(labelDate.getDate() + 1);
+            startTimeMoment.add(1, "day");
         }
 
         let row = 0; // row 0 is daytime, 1 is night
