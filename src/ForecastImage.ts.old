@@ -7,7 +7,6 @@ import jpeg from "jpeg-js";
 import * as pure from "pureimage";
 import moment from "moment-timezone";  // https://momentjs.com/timezone/docs/ &  https://momentjs.com/docs/
 import { ForecastData, Summary } from "./ForecastData";
-import { ForecastIcons } from "./ForecastIcons";
 import { LoggerInterface } from "./Logger";
 import { KacheInterface} from "./Kache";
 import { ImageWriterInterface } from "./SimpleImageWriter";
@@ -17,10 +16,8 @@ export interface ImageResult {
     imageData: jpeg.BufferRet | null;
 }
 
-
 export class ForecastImage {
     private forecastData: ForecastData;
-    private forecastIcons: ForecastIcons;
     private cache: KacheInterface;
     private logger: LoggerInterface;
     private writer: ImageWriterInterface;
@@ -30,7 +27,6 @@ export class ForecastImage {
         this.cache = cache;
         this.writer = writer;
         this.forecastData = new ForecastData(this.logger, this.cache);
-        this.forecastIcons = new ForecastIcons(this.logger, this.cache);
     }
 
     /**
@@ -77,7 +73,7 @@ export class ForecastImage {
             return null;
         }
 
-        // this.logger.verbose(`ForecastImage: ${JSON.stringify(summaryJson.forecast, null, 4)}`);
+        this.logger.verbose(`ForecastImage: ${JSON.stringify(summaryJson.forecast, null, 4)}`);
 
         const imageHeight                      = 1080; 
         const imageWidth                       = 1920;      
@@ -176,19 +172,79 @@ export class ForecastImage {
 
             //let picture: jpeg.BufferRet | null = null;
             // picture is actually of type Bitmap but that type is internal to pureimage
-            let icon = pure.make(150, 150);
+            let picture = pure.make(150, 150);
 
             // Now get the icon.  The icon in the period element ends in "=medium".  We want size 150.
             // We could ask for size 200 and the iamge would be clearer but the label (e.g.: "30%"") is too small
             // An iconUrl looks like: https://api.weather.gov/icons/land/day/rain,60?size=150
             const iconUrl = period.icon.replace("=medium", "=150");
 
-            icon = await this.forecastIcons.getIcon(iconUrl, userAgent);
+            interface Base64ImageStr {
+                dataStr: string;  // This is the base64 encoded PNG file contents
+            }
+            const base64ImageStr: Base64ImageStr = this.cache.get(iconUrl) as Base64ImageStr;
 
-            if (icon !== null) {
-                const scaledWidth = (iconHeight * icon.width) / icon.height;
-                ctx.drawImage(icon,
-                    0, 0, icon.width, icon.height,             // source dimensions
+            if (base64ImageStr !== null) {
+                
+                const dataStream = new Readable({
+                    read() {
+                        const imageData = Buffer.from(base64ImageStr.dataStr, "base64"); //.toString("binary");
+                        this.push(imageData);
+                        this.push(null);
+                    }
+                });
+              
+                picture = await pure.decodePNGFromStream(dataStream);
+                
+            } else {
+                const options: AxiosRequestConfig = {
+                    responseType: "stream",
+                    headers: {
+                        "Content-Encoding": "gzip",
+                    },
+                    timeout: 20000
+                };
+                
+                const startTime = new Date();
+                await axios.get(iconUrl, options)
+                    .then(async (res: AxiosResponse) => {
+                        if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
+                            this.logger.info(`ForecastImage: icon GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
+                        }
+                        picture = await pure.decodePNGFromStream(res.data);
+                    })
+                    .catch((error) => {
+                        this.logger.warn(`ForecastImage: No Icon: Error: ${error}`);
+                        picture = null;
+                    }); 
+
+                if (picture !== null) {
+                    let buffer = Buffer.alloc(0);
+                    let base64Data = "";
+
+                    const writeableStream = new Writable({
+                        write(chunk, encoding, callback) {
+                            buffer = Buffer.concat([buffer, chunk]);
+                            callback();
+                        },
+                        destroy() { 
+                            base64Data = buffer.toString("base64");
+                        }
+                    });
+
+                    await pure.encodePNGToStream(picture, writeableStream);
+
+                    const cachePicture: Base64ImageStr = {dataStr: base64Data};
+
+                    const expireMs: number = new Date().getTime() + 10 * 365 * 24 * 60 * 60 * 1000; // 10 years
+                    this.cache.set(iconUrl, cachePicture, expireMs);
+                }
+            }
+
+            if (picture !== null) {
+                const scaledWidth = (iconHeight * picture.width) / picture.height;
+                ctx.drawImage(picture,
+                    0, 0, picture.width, picture.height,             // source dimensions
                     originX + iconX + (columnWidth * col), originY + iconY + (rowHeight * row), scaledWidth, iconHeight  // destination dimensions
                 );
             } 

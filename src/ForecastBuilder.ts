@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { LoggerInterface } from "./Logger";
@@ -37,8 +38,8 @@ export class ForecastBuilder {
                 this.logger.warn(`ForecastBuilder: No image for ${forecastItem.fileName}`);
                 return false;
             }
-        } catch (e) {
-            this.logger.error(`ForecastBuilder: Error getting forecast data for ${forecastItem.fileName}: ${e}`);
+        } catch (e: any) {
+            this.logger.error(`ForecastBuilder: Error getting forecast data for ${forecastItem.fileName}: ${e.stack}`);
             return false;
         }
 
