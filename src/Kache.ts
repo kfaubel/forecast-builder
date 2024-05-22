@@ -86,7 +86,7 @@ export class Kache implements KacheInterface {
 
     public set(key: string, newItem: unknown, expirationTime: number): void {
         try {
-            const comment: string = new Date(expirationTime).toString();
+            const comment: string = new Date(expirationTime).toLocaleString();
             this.logger.verbose(`Cache set: Key: ${key}, exp: ${comment}`);
 
             const cacheItem = {expiration: expirationTime, comment: comment, item: newItem};

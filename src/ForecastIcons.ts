@@ -19,13 +19,15 @@ export class ForecastIcons {
 
     private logger: LoggerInterface;
     private cache: KacheInterface;
+    private userAgent: string;
 
-    constructor(logger: LoggerInterface, cache: KacheInterface) {
+    constructor(logger: LoggerInterface, cache: KacheInterface, userAgent: string) {
         this.logger = logger;
         this.cache = cache;
+        this.userAgent = userAgent;
     } 
     
-    public async getIcon(iconUrl: string, userAgent: string) : Promise<iconInterface | null> {
+    public async getIcon(iconUrl: string) : Promise<iconInterface | null> {
         let picture: iconInterface | null = null;
 
         const base64IconStr: Base64IconStr = this.cache.get(iconUrl) as Base64IconStr;
@@ -47,7 +49,7 @@ export class ForecastIcons {
                 responseType: "stream",
                 headers: {
                     "Content-Encoding": "gzip",
-                    "User-Agent": userAgent
+                    "User-Agent": this.userAgent
                 },
                 timeout: 5000
             };

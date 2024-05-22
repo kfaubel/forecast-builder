@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from "axios"; 
@@ -24,13 +25,77 @@ export class ForecastImage {
     private cache: KacheInterface;
     private logger: LoggerInterface;
     private writer: ImageWriterInterface;
+    private userAgent: string;
+    
+    private imageHeight: number;       
+    private imageWidth: number;      
 
-    constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface) {
+    private titleOffsetY: number;                                      // down from the top of the image
+    private originX: number;             // Starting point for drawing the table X
+    private originY: number;             // Starting point for drawing the table Y
+    private columnWidth: number;         // Columns are 350 pixels wide
+    private rowHeight: number;           // Everything in the second row is 320 below the first
+    private weekdayY: number;            // Draw the weekend 50 pixels below the start of the first row
+    private tempY: number;               // Draw the temp value 180 pixels below the start of the first row
+    private iconHeight: number;          // 
+    private iconX: number;               // Posiiton of the icon within the column1
+    private iconY: number;               // Position of the icon within the row
+    private alertLabelY: number;         // Alert Label
+    private alertY: number;              // First row of the alert
+    private alertSpacingY: number;       // Offset for 2nd and 3rd row
+    private alertWidth: number;          // Width of the alert text
+    private forecastSpacingY: number;    // Offset for 2nd and 3rd row
+    private forecastWidth: number;       // Width of the forecast text
+                                       
+    private backgroundColor: string;     // See myFillRect call below
+    private titleColor: string;
+    private daytimeTempColor: string;
+    private nighttimeTempColor: string;
+    private weekdayColor: string;
+    private alertColor: string;
+
+    private largeFont: string;           // Title
+    private mediumFont: string;          // weekdays
+    private mediumFontBold: string;      // temps and alerts
+
+    constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface, userAgent: string) {
         this.logger = logger;
         this.cache = cache;
         this.writer = writer;
         this.forecastData = new ForecastData(this.logger, this.cache);
-        this.forecastIcons = new ForecastIcons(this.logger, this.cache);
+        this.forecastIcons = new ForecastIcons(this.logger, this.cache, userAgent);
+        this.userAgent = userAgent;
+
+        this.imageHeight                      = 1080; 
+        this.imageWidth                       = 1920;      
+
+        this.titleOffsetY                     = 80;                                      // down from the top of the image
+        this.originX                          = 100;  // Starting point for drawing the table X (offset from lefthand side)
+        this.originY                          = 100;  // Starting point for drawing the table Y (offset from top of image)
+        this.columnWidth                      = 400;  // Columns are 350 pixels wide
+        this.rowHeight                        = 320;  // Everything in the second row is 320 below the first
+        this.weekdayY                         = 80;   // Draw the weekend 50 pixels below the start of the first row
+        this.tempY                            = 150;  // Draw the temp value 180 pixels below the start of the first row
+        this.iconHeight                       = 400;  // 
+        this.iconX                            = 75;   // Posiiton of the icon within the column1
+        this.iconY                            = 170;  // Position of the icon within the row
+        this.alertLabelY                      = 800;  // First row of the alert label
+        this.alertY                           = 870;  // First row of the alert
+        this.alertSpacingY                    = 60;   // Offset for 2nd and 3rd row
+        this.alertWidth                       = 1400;  // Width of the alert text
+        this.forecastSpacingY                 = 60;   // Offset for 2nd and 3rd row
+        this.forecastWidth                    = 1000;  // Width of the forecast text
+                                        
+        this.backgroundColor                  = "#FFFFFF"; // See myFillRect call below
+        this.titleColor                       = "rgb(0,     0,   150)";
+        this.daytimeTempColor                 = "rgb(255,   0,   0)";
+        this.nighttimeTempColor               = "rgb(0,     0,   255)";
+        this.weekdayColor                     = "rgb(0 ,    0,   150)";
+        this.alertColor                       = "rgb(220,   0,   0)";
+
+        this.largeFont                        = "80px 'OpenSans-Bold'";      // Title
+        this.mediumFont                       = "50px 'OpenSans-Regular'";   // weekdays
+        this.mediumFontBold                   = "60px 'OpenSans-Bold'";      // temps and alerts
     }
 
     /**
@@ -66,12 +131,41 @@ export class ForecastImage {
         }
     }
 
-    public async getImage(lat: string, lon: string, location: string, userAgent: string): Promise<ImageResult | null> {
+    private async drawForecast(ctx: any, currentPeriodName: string, currentPeriodTempLabel: string, currentPeriodIconURL:string, x: number, y: number, iconSize: number): Promise<void> {
+        ctx.font = this.mediumFontBold;
+        ctx.fillStyle = this.weekdayColor;
+        const scaledWidth = iconSize;
+        const scaledHeight = iconSize;
+
+        // Draw the "Today" or "Tonight" label
+        ctx.centerText(currentPeriodName, x + scaledWidth/2, y + this.weekdayY);
+        ctx.centerUnderline(currentPeriodName, x + scaledWidth/2, y + this.weekdayY, this.weekdayColor);
+
+        // Draw the current temperature forecast
+        ctx.fillStyle = currentPeriodName.includes("Tonight") ? this.nighttimeTempColor : this.daytimeTempColor;
+        ctx.centerText(currentPeriodTempLabel, x + scaledWidth/2, y + this.tempY);
+
+        // Draw the current icon
+        const iconUrl = currentPeriodIconURL.replace("=medium", "=150");
+
+        const icon = await this.forecastIcons.getIcon(iconUrl);
+
+        if (icon !== null) {            
+            this.logger.verbose(`ForecastImage: icon ${icon.width}x${icon.height} scaled to ${scaledWidth}x${scaledHeight}, at ${x}, ${y + scaledWidth}`);
+                
+            ctx.drawImage(icon,
+                0, 0, icon.width, icon.height,             // source dimensions
+                x, y + this.iconY, scaledWidth, scaledHeight  // destination dimensions
+            );
+        } 
+    }
+
+    public async getImage(lat: string, lon: string, location: string): Promise<ImageResult | null> {
         this.logger.verbose(`ForecastImage: request for ${location}`);
 
         const title = `Forecast for ${location}`;
 
-        const summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, userAgent);
+        const summaryJson: Summary | null = await  this.forecastData.getForecastData(lat, lon, this.userAgent);
 
         if (summaryJson === null || summaryJson.forecast === null) {
             return null;
@@ -79,32 +173,6 @@ export class ForecastImage {
 
         // this.logger.verbose(`ForecastImage: ${JSON.stringify(summaryJson.forecast, null, 4)}`);
 
-        const imageHeight                      = 1080; 
-        const imageWidth                       = 1920;      
-
-        const titleOffsetY                     = 80;                                      // down from the top of the image
-        const originX                          = 100;  // Starting point for drawing the table X
-        const originY                          = 100;  // Starting point for drawing the table Y
-        const columnWidth                      = 340;  // Columns are 350 pixels wide
-        const rowHeight                        = 320;  // Everything in the second row is 320 below the first
-        const weekdayY                         = 80;   // Draw the weekend 50 pixels below the start of the first row
-        const tempY                            = 150;  // Draw the temp value 180 pixels below the start of the first row
-        const iconHeight                       = 200;  // 
-        const iconX                            = 75;   // Posiiton of the icon within the column1
-        const iconY                            = 180;  // Position of the icon within the row
-        const alertY                           = 900;  // First row of the alert
-        const alertSpacingY                    = 60;   // Offset for 2nd and 3rd row
-                                           
-        const backgroundColor                  = "#FFFFFF"; // See myFillRect call below
-        const titleColor                       = "rgb(0,     0,   150)";
-        const daytimeTempColor                 = "rgb(255,   0,   0)";
-        const nighttimeTempColor               = "rgb(0,     0,   255)";
-        const weekdayColor                     = "rgb(0 ,    0,   150)";
-        const alertColor                       = "rgb(220,   0,   0)";
-
-        const largeFont                        = "80px 'OpenSans-Bold'";      // Title
-        const mediumFont                       = "48px 'OpenSans-Regular'";   // weekdays
-        const mediumFontBold                   = "48px 'OpenSans-Bold'";      // temps and alerts
 
         // When used as an npm package, fonts need to be installed in the top level of the main project
         const fntBold     = pure.registerFont(path.join(".", "fonts", "OpenSans-Bold.ttf"),"OpenSans-Bold");
@@ -115,7 +183,7 @@ export class ForecastImage {
         fntRegular.loadSync();
         fntRegular2.loadSync();
 
-        const img = pure.make(imageWidth, imageHeight);
+        const img = pure.make(this.imageWidth, this.imageHeight);
         const ctx = img.getContext("2d");
 
         // Extend ctx with function to draw centered text
@@ -139,84 +207,83 @@ export class ForecastImage {
         };
 
         // Fill the bitmap
-        this.myFillRect(img, 0, 0, imageWidth, imageHeight, backgroundColor);
+        this.myFillRect(img, 0, 0, this.imageWidth, this.imageHeight, this.backgroundColor);
 
         // Draw the title
-        ctx.fillStyle = titleColor;
-        ctx.font = largeFont;
-        ctx.centerText(title, imageWidth/2, titleOffsetY);
+        ctx.fillStyle = this.titleColor;
+        ctx.font = this.largeFont;
+        ctx.centerText(title, this.imageWidth/2, this.titleOffsetY);
+        let currentPeriodName: string = "";
+        let currentPeriodTemp: number = 0;
+        let currentPeriodTempUnit: string = "";
+        let currentPeriodIconURL: string = "";
+        let tempLabel: string = "";
+
+        currentPeriodName = summaryJson.forecast.properties.periods[0].name;
+        currentPeriodTemp = summaryJson.forecast.properties.periods[0].temperature;
+        currentPeriodTempUnit = summaryJson.forecast.properties.periods[0].temperatureUnit;
+        currentPeriodIconURL = summaryJson.forecast.properties.periods[0].icon;
+        tempLabel = `${currentPeriodTemp} ${currentPeriodTempUnit}`;
+
+        await this.drawForecast(ctx, currentPeriodName, tempLabel, currentPeriodIconURL, this.originX, this.originY, 425);
+
+        currentPeriodName = summaryJson.forecast.properties.periods[1].name;
+        currentPeriodTemp = summaryJson.forecast.properties.periods[1].temperature;
+        currentPeriodTempUnit = summaryJson.forecast.properties.periods[1].temperatureUnit;
+        currentPeriodIconURL = summaryJson.forecast.properties.periods[1].icon;
+        tempLabel = `${currentPeriodTemp} ${currentPeriodTempUnit}`;
+
+        await this.drawForecast(ctx, currentPeriodName, tempLabel, currentPeriodIconURL, this.originX + 1400, this.originY, 250);
         
-        const startTimeMoment = moment(summaryJson.forecast.properties.periods[0].startTime);
+        currentPeriodName = summaryJson.forecast.properties.periods[2].name;
+        currentPeriodTemp = summaryJson.forecast.properties.periods[2].temperature;
+        currentPeriodTempUnit = summaryJson.forecast.properties.periods[2].temperatureUnit;
+        currentPeriodIconURL = summaryJson.forecast.properties.periods[2].icon;
+        tempLabel = `${currentPeriodTemp} ${currentPeriodTempUnit}`;
 
-        // Draw the weekday labels across each column
-        for (let i = 0; i < 5; i++) {
-            ctx.font = mediumFontBold;
-            ctx.fillStyle = weekdayColor;
-            ctx.centerText(startTimeMoment.format("dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY);
-            ctx.centerUnderline(startTimeMoment.format("dddd"), originX + (columnWidth * i) + columnWidth/2, originY + weekdayY, weekdayColor);
+        await this.drawForecast(ctx, currentPeriodName, tempLabel, currentPeriodIconURL, this.originX + 1400, this.originY + 480, 250);
 
-            // Advance for the next iteration
-            startTimeMoment.add(1, "day");
-        }
+        // Draw the detailed forecast
+        //const currentPeriodDetailedForecast = summaryJson.forecast.properties.periods[0].detailedForecast;
+        const currentPeriodDetailedForecast = summaryJson.forecast.properties.periods[0].shortForecast;
+        const forecastLines: string[] = this.splitLine(currentPeriodDetailedForecast, ctx, this.forecastWidth, 6);
 
-        let row = 0; // row 0 is daytime, 1 is night
-        let col = 0; // col 0 is the first day, ...
-
-        // The first element will be the overnight period between midnight and about 6AM
-        if (summaryJson.forecast.properties.periods[0].isDaytime === false) {
-            row = 1; // Skip the daytime part since it has passed.
-        }
-
-        for (const period of summaryJson.forecast.properties.periods) {
-            ctx.font = mediumFontBold;
-
-            // Draw the temp in red for daytime high and blue for overnight low
-            ctx.fillStyle = period.isDaytime === true ? daytimeTempColor : nighttimeTempColor;
-            ctx.centerText(`${period.temperature} ${period.temperatureUnit}`, originX + (columnWidth * col) + columnWidth/2, originY + (rowHeight * row) + tempY);
-
-            //let picture: jpeg.BufferRet | null = null;
-            // picture is actually of type Bitmap but that type is internal to pureimage
-            let icon = pure.make(150, 150);
-
-            // Now get the icon.  The icon in the period element ends in "=medium".  We want size 150.
-            // We could ask for size 200 and the iamge would be clearer but the label (e.g.: "30%"") is too small
-            // An iconUrl looks like: https://api.weather.gov/icons/land/day/rain,60?size=150
-            const iconUrl = period.icon.replace("=medium", "=150");
-
-            icon = await this.forecastIcons.getIcon(iconUrl, userAgent);
-
-            if (icon !== null) {
-                const scaledWidth = (iconHeight * icon.width) / icon.height;
-                ctx.drawImage(icon,
-                    0, 0, icon.width, icon.height,             // source dimensions
-                    originX + iconX + (columnWidth * col), originY + iconY + (rowHeight * row), scaledWidth, iconHeight  // destination dimensions
-                );
-            } 
-
-            row++;
-            if (row > 1) {
-                row = 0;
-                col++;
-            }
-
-            if (col > 4)
-                break;
-        }
-
-        ctx.font = mediumFont;
-        ctx.fillStyle = alertColor;
-        let alertStr = "No active alerts";
-
-        if (summaryJson?.alerts?.features[0]?.properties?.parameters?.NWSheadline) {
-            alertStr = "Active alert: " + summaryJson.alerts.features[0].properties.parameters.NWSheadline;
-        }
-
-        const alertLines: string[] = this.splitLine(alertStr, ctx, imageWidth - 200, 3);       
-
-        for (let alertLine = 0; alertLine < alertLines.length; alertLine++) {            
-            ctx.fillText(alertLines[alertLine], originX, alertY + (alertLine * alertSpacingY));
+        ctx.fillStyle = this.weekdayColor;
+        ctx.font = this.mediumFont;
+        for (let forecaastLine = 0; forecaastLine < forecastLines.length; forecaastLine++) {            
+            ctx.fillText(forecastLines[forecaastLine], this.originX + 450, 360 + (forecaastLine * this.forecastSpacingY));
         } 
 
+        // Draw the active alerts
+        
+        ctx.fillStyle = this.alertColor;
+        ctx.strokeStyle = this.alertColor;
+
+        // Draw the alert label
+        ctx.font = this.mediumFont;
+        ctx.fillText("Active Alerts", this.originX, this.alertLabelY);
+        const width = ctx.measureText("Active Alerts").width;
+        ctx.lineWidth = 2;
+        ctx.moveTo(this.originX, this.alertLabelY + 5);
+        ctx.lineTo(this.originX + width, this.alertLabelY + 5);
+        ctx.stroke();
+
+        // Draw the alert text
+        let alertStr = "No alerts";
+        //let alertStr = "The weather at this location is currently calm and there are no active alerts.  This could change at any time, so please check back later.";
+
+        if (summaryJson?.alerts?.features[0]?.properties?.parameters?.NWSheadline) {
+            alertStr = summaryJson.alerts.features[0].properties.parameters.NWSheadline[0]; // NWSheadline is actually an array!  Take the first one.
+        }
+
+        const alertLines: string[] = this.splitLine(alertStr, ctx, this.alertWidth, 3);       
+
+        ctx.font = this.mediumFont;
+        for (let alertLine = 0; alertLine < alertLines.length; alertLine++) {         
+            ctx.fillText(alertLines[alertLine], this.originX, this.alertY + (alertLine * this.alertSpacingY)); 
+        } 
+
+        // Convert the image to a jpeg
         const jpegImg: jpeg.BufferRet = jpeg.encode(img, 80);
         
         return {

@@ -18,18 +18,20 @@ export class ForecastBuilder {
     private logger: LoggerInterface;
     private cache: KacheInterface;
     private writer: ImageWriterInterface;
+    private userAgent: string;
 
-    constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface) {
+    constructor(logger: LoggerInterface, cache: KacheInterface, writer: ImageWriterInterface, userAgent: string) {
         this.logger = logger;
         this.cache = cache; 
         this.writer = writer;
+        this.userAgent = userAgent;
     }
 
-    public async CreateImages(forecastItem: ForecastItem, userAgent: string): Promise<boolean>{
+    public async CreateImages(forecastItem: ForecastItem): Promise<boolean>{
         try {
-            const forecastImage: ForecastImage = new ForecastImage(this.logger, this.cache, this.writer);
+            const forecastImage: ForecastImage = new ForecastImage(this.logger, this.cache, this.writer, this.userAgent);
 
-            const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location, userAgent);
+            const result = await forecastImage.getImage(forecastItem.lat, forecastItem.lon, forecastItem.location);
 
             if (result !== null && result.imageData !== null ) {
                 this.logger.info(`ForecastBuilder: Writing: ${forecastItem.fileName}`);

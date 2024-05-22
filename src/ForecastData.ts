@@ -78,7 +78,7 @@ export class ForecastData {
                 "User-Agent": userAgent, 
                 "Feature-Flags": ""
             },
-            timeout: 20000
+            timeout: 5000
         };
 
         const startTime = new Date();
