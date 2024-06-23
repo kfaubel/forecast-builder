@@ -51,12 +51,19 @@ async function run() {
         timeZone: "America/Denver"
     };
 
-    await forecastBuilder.CreateImages(forecastData1);
-    await forecastBuilder.CreateImages(forecastData2);
-    await forecastBuilder.CreateImages(forecastData3);
-    await forecastBuilder.CreateImages(forecastData4);
-    
-    logger.info("Done"); 
+    let success: boolean = true;
+    success  = await forecastBuilder.CreateImages(forecastData1) && success;
+    logger.verbose("=============================================================");
+    success  = await forecastBuilder.CreateImages(forecastData2) && success;
+    logger.verbose("=============================================================");
+    success  = await forecastBuilder.CreateImages(forecastData3) && success;
+    logger.verbose("=============================================================");
+    success  = await forecastBuilder.CreateImages(forecastData4) && success;
+    logger.verbose("=============================================================");
+
+    logger.info(`test.ts: Done: ${success  ? "successfully" : "failed"}`); 
+
+    return success ? 0 : 1;
 }
 
 run();

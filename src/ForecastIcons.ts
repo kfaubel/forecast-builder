@@ -20,6 +20,7 @@ export class ForecastIcons {
     private logger: LoggerInterface;
     private cache: KacheInterface;
     private userAgent: string;
+    private iconHost: string = "https://api.weather.gov";
 
     constructor(logger: LoggerInterface, cache: KacheInterface, userAgent: string) {
         this.logger = logger;
@@ -27,10 +28,18 @@ export class ForecastIcons {
         this.userAgent = userAgent;
     } 
     
-    public async getIcon(iconUrl: string) : Promise<iconInterface | null> {
+    /**
+     * getIcon - Get the icon for the named icon 
+     *   First, check the cache for the icon
+     *   If not in the cache, fetch the icon using the iconHost (e.g.: api.weather.gov)
+     * @param icon (e.g.: "/icons/land/night/sct?size=150")
+     * @returns iconInterface | null
+     */
+    public async getIcon(icon: string) : Promise<iconInterface | null> {
         let picture: iconInterface | null = null;
+        this.logger.verbose(`ForecastIcons: Call to get the icon: ${icon}.  Check cache first`);
 
-        const base64IconStr: Base64IconStr = this.cache.get(iconUrl) as Base64IconStr;
+        const base64IconStr: Base64IconStr = this.cache.get(icon) as Base64IconStr;
 
         if (base64IconStr !== null) {
             
@@ -51,19 +60,21 @@ export class ForecastIcons {
                     "Content-Encoding": "gzip",
                     "User-Agent": this.userAgent
                 },
-                timeout: 5000
+                timeout: 20000
             };
             
             const startTime = new Date();
+            const iconUrl = this.iconHost + icon;
+            this.logger.verbose(`ForecastIcons: Not in cache. GET: ${iconUrl}`);
             await axios.get(iconUrl, options)
                 .then(async (res: AxiosResponse) => {
                     if (typeof process.env.TRACK_GET_TIMES !== "undefined" ) {
-                        this.logger.info(`ForecastImage: icon GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
+                        this.logger.info(`ForecastIcons: icon GET TIME: ${new Date().getTime() - startTime.getTime()}ms`);
                     }
                     picture = await pure.decodePNGFromStream(res.data);
                 })
-                .catch((error) => {
-                    this.logger.warn(`ForecastImage: No Icon: Error: ${error}`);
+                .catch((error: any) => {
+                    this.logger.warn(`ForecastIcons: No Icon: Error: ${error.stack}`);
                     picture = null;
                 }); 
 
@@ -86,7 +97,7 @@ export class ForecastIcons {
                 const cachePicture: Base64IconStr = {dataStr: base64Data};
 
                 const expireMs: number = new Date().getTime() + 10 * 365 * 24 * 60 * 60 * 1000; // 10 years
-                this.cache.set(iconUrl, cachePicture, expireMs);
+                this.cache.set(icon, cachePicture, expireMs);
             }
         }
 
