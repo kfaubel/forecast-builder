@@ -131,6 +131,16 @@ export class ForecastImage {
         }
     }
 
+    /**
+     * 
+     * @param ctx 
+     * @param currentPeriodName 
+     * @param currentPeriodTempLabel 
+     * @param currentPeriodIconURL 
+     * @param x 
+     * @param y 
+     * @param iconSize 
+     */
     private async drawForecast(ctx: any, currentPeriodName: string, currentPeriodTempLabel: string, currentPeriodIconURL:string, x: number, y: number, iconSize: number): Promise<void> {
         ctx.font = this.mediumFontBold;
         ctx.fillStyle = this.weekdayColor;

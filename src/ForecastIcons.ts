@@ -14,13 +14,15 @@ interface iconInterface {
     height: number;
     data: ArrayBuffer;
 }
-
+/**
+ * ForecastIcons - This class is used to fetch and cache the icons used in the forecast
+ */
 export class ForecastIcons {
 
     private logger: LoggerInterface;
     private cache: KacheInterface;
     private userAgent: string;
-    private iconHost: string = "https://api.weather.gov";
+    //private iconHost: string = "https://api.weather.gov";
 
     constructor(logger: LoggerInterface, cache: KacheInterface, userAgent: string) {
         this.logger = logger;
@@ -35,11 +37,11 @@ export class ForecastIcons {
      * @param icon (e.g.: "/icons/land/night/sct?size=150")
      * @returns iconInterface | null
      */
-    public async getIcon(icon: string) : Promise<iconInterface | null> {
+    public async getIcon(iconUrl: string) : Promise<iconInterface | null> {
         let picture: iconInterface | null = null;
-        this.logger.verbose(`ForecastIcons: Call to get the icon: ${icon}.  Check cache first`);
+        this.logger.verbose(`ForecastIcons: Call to get the icon: ${iconUrl}.  Check cache first`);
 
-        const base64IconStr: Base64IconStr = this.cache.get(icon) as Base64IconStr;
+        const base64IconStr: Base64IconStr = this.cache.get(iconUrl) as Base64IconStr;
 
         if (base64IconStr !== null) {
             
@@ -64,7 +66,6 @@ export class ForecastIcons {
             };
             
             const startTime = new Date();
-            const iconUrl = this.iconHost + icon;
             this.logger.verbose(`ForecastIcons: Not in cache. GET: ${iconUrl}`);
             await axios.get(iconUrl, options)
                 .then(async (res: AxiosResponse) => {
@@ -97,7 +98,7 @@ export class ForecastIcons {
                 const cachePicture: Base64IconStr = {dataStr: base64Data};
 
                 const expireMs: number = new Date().getTime() + 10 * 365 * 24 * 60 * 60 * 1000; // 10 years
-                this.cache.set(icon, cachePicture, expireMs);
+                this.cache.set(iconUrl, cachePicture, expireMs);
             }
         }
 
